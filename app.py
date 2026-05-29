@@ -1,3 +1,6 @@
+import os
+
+
 from flask import Flask, request, jsonify, send_from_directory
 
 from flask_cors import CORS
@@ -73,7 +76,11 @@ filename = file.filename
 if filename.endswith('.xls'):
     df = pd.read_excel(file, engine='xlrd', dtype=str)
 else:
-    df = pd.read_excel(file, dtype=str)
+    filename = file.filename
+if filename.lower().endswith('.xls'):
+    df = pd.read_excel(file, engine='xlrd', dtype=str)
+else:
+    df = pd.read_excel(file, engine='openpyxl', dtype=str)
     except Exception as e:
         return jsonify({'error': f'Erreur lecture Excel: {e}'}), 400
 
