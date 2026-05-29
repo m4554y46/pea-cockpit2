@@ -254,8 +254,8 @@ def upload_file():
                 'trailingPE': None,
                 'sector': detect_sector(p['name'], p['ticker'])
             })
-        time.sleep(0.2)  # pour ne pas surcharger l'API
-
+        time.sleep(0.05)  # pour ne pas surcharger l'API
+print("Traitement de", p['ticker'])
     return jsonify({'success': True, 'portfolio': enriched})
 
 if __name__ == '__main__':
