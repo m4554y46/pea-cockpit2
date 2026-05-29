@@ -1,16 +1,21 @@
-import os
-
-
 from flask import Flask, request, jsonify, send_from_directory
-
 from flask_cors import CORS
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
 import re
+import os
 
 app = Flask(__name__)
 CORS(app)
+
+@app.route('/')
+def index():
+    return send_from_directory('public', 'index.html')
+
+@app.route('/<path:filename>')
+def static_files(filename):
+    return send_from_directory('public', filename)
 
 def extract_ticker(libelle):
     """Extrait le code boursier depuis le libellé, ex: 'TOTALENERGIES (TTE)' -> 'TTE'"""
@@ -53,16 +58,21 @@ def get_stock_data(ticker):
         print(f"Erreur {ticker}: {e}")
         return None
 
-
-@app.route('/')
-def index():
-    return send_from_directory('public', 'index.html')
-
-@app.route('/<path:filename>')
-def static_files(filename):
-    return send_from_directory('public', filename)
-
-
+def detect_sector(name, ticker):
+    low = (name + ' ' + ticker).lower()
+    if 'etf' in low or 'tracker' in low or 'amundi' in low:
+        return 'ETF'
+    if any(x in low for x in ['bnp', 'credit', 'axa', 'societe']):
+        return 'Finance'
+    if any(x in low for x in ['total', 'engie', 'rubis']):
+        return 'Énergie'
+    if any(x in low for x in ['renault', 'stellantis', 'alstom']):
+        return 'Auto/Transport'
+    if any(x in low for x in ['sanofi', 'essilor', 'gensight']):
+        return 'Santé'
+    if any(x in low for x in ['lvmh', 'kering', 'hermes']):
+        return 'Luxe'
+    return 'Autre'
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -71,16 +81,11 @@ def upload_file():
 
     file = request.files['excel']
     try:
-        # Détection de l'extension (pour les .xls, utiliser xlrd)
-filename = file.filename
-if filename.endswith('.xls'):
-    df = pd.read_excel(file, engine='xlrd', dtype=str)
-else:
-    filename = file.filename
-if filename.lower().endswith('.xls'):
-    df = pd.read_excel(file, engine='xlrd', dtype=str)
-else:
-    df = pd.read_excel(file, engine='openpyxl', dtype=str)
+        filename = file.filename
+        if filename.lower().endswith('.xls'):
+            df = pd.read_excel(file, engine='xlrd', dtype=str)
+        else:
+            df = pd.read_excel(file, engine='openpyxl', dtype=str)
     except Exception as e:
         return jsonify({'error': f'Erreur lecture Excel: {e}'}), 400
 
@@ -164,7 +169,6 @@ else:
                 'sector': detect_sector(p['name'], p['ticker'])
             })
         else:
-            # Si pas de données, on garde les valeurs initiales du fichier
             valeur = p['cours_initial'] * p['qty']
             enriched.append({
                 **p,
@@ -183,22 +187,6 @@ else:
             })
 
     return jsonify({'success': True, 'portfolio': enriched})
-
-def detect_sector(name, ticker):
-    low = (name + ' ' + ticker).lower()
-    if 'etf' in low or 'tracker' in low or 'amundi' in low:
-        return 'ETF'
-    if any(x in low for x in ['bnp', 'credit', 'axa', 'societe']):
-        return 'Finance'
-    if any(x in low for x in ['total', 'engie', 'rubis']):
-        return 'Énergie'
-    if any(x in low for x in ['renault', 'stellantis', 'alstom']):
-        return 'Auto/Transport'
-    if any(x in low for x in ['sanofi', 'essilor', 'gensight']):
-        return 'Santé'
-    if any(x in low for x in ['lvmh', 'kering', 'hermes']):
-        return 'Luxe'
-    return 'Autre'
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
