@@ -87,8 +87,16 @@ tbody tr:hover td{background:rgba(59,130,246,0.04);}
 .timeline-date{font-family:var(--font-mono);font-size:0.62rem;color:var(--muted2);}
 .timeline-company{font-size:0.72rem;font-weight:600;}
 .timeline-amount{font-size:0.9rem;font-weight:800;color:var(--green);margin-left:auto;}
-.risk-table{width:100%;}
-.risk-table td{padding:5px 8px;font-size:0.7rem;}
+.risk-table {
+    width: 100%;
+    overflow-x: auto;
+    display: block;
+    white-space: nowrap;
+}
+.risk-table td {
+    padding: 5px 8px;
+    font-size: 0.7rem;
+}
 .risk-row-label{color:var(--muted2);}
 #riskPositions{display:flex;flex-wrap:wrap;gap:12px;}
 .risk-card{background:var(--bg2);border-radius:12px;padding:10px 14px;min-width:170px;flex:1 0 auto;}
