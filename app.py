@@ -68,7 +68,12 @@ def upload_file():
 
     file = request.files['excel']
     try:
-        df = pd.read_excel(file, dtype=str)
+        # Détection de l'extension (pour les .xls, utiliser xlrd)
+filename = file.filename
+if filename.endswith('.xls'):
+    df = pd.read_excel(file, engine='xlrd', dtype=str)
+else:
+    df = pd.read_excel(file, dtype=str)
     except Exception as e:
         return jsonify({'error': f'Erreur lecture Excel: {e}'}), 400
 
