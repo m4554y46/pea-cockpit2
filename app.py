@@ -18,7 +18,6 @@ def static_files(filename):
     return send_from_directory('public', filename)
 
 def extract_ticker(libelle):
-    """Extrait le code boursier depuis le libellé, ex: 'TOTALENERGIES (TTE)' -> 'TTE'"""
     match = re.search(r'\(([A-Z0-9]{2,6})\)', libelle)
     if match:
         return match.group(1)
@@ -29,30 +28,20 @@ def extract_ticker(libelle):
     return libelle.split()[0][:5].upper()
 
 def get_stock_data(ticker):
-    """Récupère cours, variation, dividende, ex-date, beta, PER via yfinance"""
     try:
         stock = yf.Ticker(ticker + '.PA')
         info = stock.info
-
         price = info.get('regularMarketPrice') or info.get('currentPrice') or 0
         prev_close = info.get('regularMarketPreviousClose') or info.get('previousClose') or price
         change = (price - prev_close) / prev_close if prev_close else 0
-
         annual_div = info.get('trailingAnnualDividendRate') or 0
         ex_div_ts = info.get('exDividendDate')
         ex_div_date = datetime.fromtimestamp(ex_div_ts).strftime('%Y-%m-%d') if ex_div_ts else None
-
         beta = info.get('beta')
         pe = info.get('trailingPE')
-
         return {
-            'cours': price,
-            'var': change,
-            'annualDiv': annual_div,
-            'exDivDate': ex_div_date,
-            'beta': beta,
-            'trailingPE': pe,
-            'divYield': annual_div / price if price else 0
+            'cours': price, 'var': change, 'annualDiv': annual_div, 'exDivDate': ex_div_date,
+            'beta': beta, 'trailingPE': pe, 'divYield': annual_div / price if price else 0
         }
     except Exception as e:
         print(f"Erreur {ticker}: {e}")
@@ -81,27 +70,53 @@ def upload_file():
 
     file = request.files['excel']
     try:
+        # Lire tout le fichier sans en-tête, pour inspecter les lignes
         filename = file.filename
         if filename.lower().endswith('.xls'):
-            df = pd.read_excel(file, engine='xlrd', dtype=str)
+            df_raw = pd.read_excel(file, header=None, engine='xlrd')
         else:
-            df = pd.read_excel(file, engine='openpyxl', dtype=str)
+            df_raw = pd.read_excel(file, header=None, engine='openpyxl')
     except Exception as e:
         return jsonify({'error': f'Erreur lecture Excel: {e}'}), 400
 
-    # Détection colonnes (insensible à la casse)
-    cols = {k.lower(): k for k in df.columns}
-    libelle_col = None
-    for candidate in ['libellé', 'libelle', 'titre', 'nom']:
-        if candidate in cols:
-            libelle_col = cols[candidate]
+    # Rechercher la ligne contenant les mots-clés (sur les 20 premières lignes)
+    header_row = None
+    for idx in range(min(20, len(df_raw))):
+        row = df_raw.iloc[idx].astype(str).str.lower()
+        if any(term in row.values for term in ['libellé', 'libelle', 'titre', 'nom']):
+            header_row = idx
             break
-    if not libelle_col:
-        return jsonify({'error': 'Colonne "Libellé" introuvable'}), 400
 
-    cours_col = cols.get('cours') or cols.get('prix')
-    qty_col = cols.get('qté') or cols.get('qte') or cols.get('quantité')
-    pru_col = cols.get('pru') or cols.get('prix revient')
+    if header_row is None:
+        return jsonify({'error': 'Impossible de trouver la ligne d\'en-tête (contenant "Libellé")'}), 400
+
+    # Re-lire le fichier avec la bonne ligne d'en-tête
+    file.seek(0)  # remettre le pointeur au début
+    if filename.lower().endswith('.xls'):
+        df = pd.read_excel(file, header=header_row, engine='xlrd', dtype=str)
+    else:
+        df = pd.read_excel(file, header=header_row, engine='openpyxl', dtype=str)
+
+    # Nettoyer les noms de colonnes (supprimer espaces, \n)
+    df.columns = df.columns.str.strip().str.replace('\n', ' ')
+
+    print("Colonnes détectées :", list(df.columns))
+
+    # Détection colonne libellé (insensible, avec plusieurs synonymes)
+    libelle_col = None
+    for col in df.columns:
+        col_low = col.lower()
+        if any(term in col_low for term in ['libellé', 'libelle', 'titre', 'nom', 'designation', 'instrument', 'valeur']):
+            libelle_col = col
+            break
+
+    if not libelle_col:
+        return jsonify({'error': f'Colonne "Libellé" introuvable. Colonnes trouvées : {list(df.columns)}'}), 400
+
+    cols_lower = {k.lower(): k for k in df.columns}
+    cours_col = cols_lower.get('cours') or cols_lower.get('prix')
+    qty_col = cols_lower.get('qté') or cols_lower.get('qte') or cols_lower.get('quantité')
+    pru_col = cols_lower.get('pru') or cols_lower.get('prix revient')
 
     portfolio = []
     for _, row in df.iterrows():
@@ -118,14 +133,12 @@ def upload_file():
                 qty = float(row[qty_col])
             except:
                 pass
-
         pru = 0.0
         if pru_col and not pd.isna(row[pru_col]):
             try:
                 pru = float(row[pru_col])
             except:
                 pass
-
         cours_initial = 0.0
         if cours_col and not pd.isna(row[cours_col]):
             try:
