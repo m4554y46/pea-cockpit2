@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
+
 from flask_cors import CORS
 import yfinance as yf
 import pandas as pd
@@ -48,6 +49,17 @@ def get_stock_data(ticker):
     except Exception as e:
         print(f"Erreur {ticker}: {e}")
         return None
+
+
+@app.route('/')
+def index():
+    return send_from_directory('public', 'index.html')
+
+@app.route('/<path:filename>')
+def static_files(filename):
+    return send_from_directory('public', filename)
+
+
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
