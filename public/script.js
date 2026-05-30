@@ -4,55 +4,39 @@ let sectorChart, divChart;
 const fileInput = document.getElementById('excelFile');
 const searchInput = document.getElementById('searchInput');
 
-
 fileInput.addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-
   const progressDiv = document.getElementById('progressContainer');
   const progressBar = document.getElementById('progressBar');
   const progressMsg = document.getElementById('progressMessage');
-  
   progressDiv.style.display = 'block';
   progressBar.style.width = '0%';
   progressMsg.innerText = 'Envoi du fichier...';
-  
   const formData = new FormData();
   formData.append('excel', file);
-  
   try {
     const res = await fetch('/upload', { method: 'POST', body: formData });
     progressMsg.innerText = 'Récupération des données financières...';
     progressBar.style.width = '50%';
-    
     const data = await res.json();
     if (!data.success) throw new Error(data.error);
-    
     portfolio = data.portfolio;
     filteredPortfolio = [...portfolio];
     progressBar.style.width = '100%';
-    progressMsg.innerText = 'Affichage du portefeuille...';
+    progressMsg.innerText = 'Affichage...';
     buildAll();
-    setTimeout(() => {
-      progressDiv.style.display = 'none';
-    }, 800);
+    setTimeout(() => { progressDiv.style.display = 'none'; }, 800);
     document.getElementById('apiStatus').innerText = `${portfolio.length} titres importés`;
-    document.getElementById('statusDot').classList.remove('loading');
   } catch (err) {
     progressMsg.innerText = `Erreur : ${err.message}`;
-    progressBar.style.backgroundColor = 'var(--red)';
-    setTimeout(() => {
-      progressDiv.style.display = 'none';
-      progressBar.style.backgroundColor = 'var(--green)';
-    }, 3000);
+    setTimeout(() => { progressDiv.style.display = 'none'; }, 3000);
     alert('Erreur : ' + err.message);
   }
   fileInput.value = '';
 });
 
-
-
-
+searchInput.addEventListener('input', applyFilter);
 document.querySelectorAll('.filter-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -61,8 +45,6 @@ document.querySelectorAll('.filter-btn').forEach(btn => {
     applyFilter();
   });
 });
-searchInput.addEventListener('input', applyFilter);
-
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -136,7 +118,7 @@ function buildTable() {
     const conseil = computeConseil(p);
     const daysToDiv = p.exDivDate ? fmtDaysTo(p.exDivDate) : null;
     return `<tr>
-      <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis" title="${p.name}">${p.name}${p.etf?' <span style="font-size:8px;background:rgba(139,92,246,0.2);padding:1px 5px;border-radius:6px;">ETF</span>':''}</td>
+      <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis" title="${p.name}">${p.name}${p.etf?' <span class="etf-badge">ETF</span>':''}</td>
       <td><span class="ticker-badge">${p.ticker}</span></td>
       <td>${p.qty}</td><td>${fmt(p.pru)}€</td><td><strong>${fmt(p.cours)}€</strong></td>
       <td class="${p.var>0?'var-pos':p.var<0?'var-neg':''}">${p.var?fmtPct(p.var):'—'}</td>
@@ -254,16 +236,7 @@ function applyFilter() {
   buildTable();
 }
 
-function buildAll() {
-  buildKPIs();
-  applyFilter();
-  buildHeatmap();
-  buildAllocBars();
-  buildSectorChart();
-  buildDividendTimeline();
-  buildRiskMetrics();
-  document.getElementById('footerTime').innerText = new Date().toLocaleTimeString();
-}
+function buildAll() { buildKPIs(); applyFilter(); buildHeatmap(); buildAllocBars(); buildSectorChart(); buildDividendTimeline(); buildRiskMetrics(); document.getElementById('footerTime').innerText = new Date().toLocaleTimeString(); }
 
 const fmt = (n, d=2) => (n===null||isNaN(n))?'—':n.toLocaleString('fr-FR',{minimumFractionDigits:d});
 const fmtEur = n => fmt(n,2)+' €';
@@ -271,12 +244,9 @@ const fmtPct = n => (n>=0?'+':'')+fmt(n*100,2)+'%';
 const fmtDate = d => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
 const fmtDaysTo = d => { if(!d) return null; const days=Math.round((new Date(d)-new Date())/86400000); if(days<0) return `il y a ${-days}j`; if(days===0) return "auj."; return `dans ${days}j`; };
 const shortName = (name,max=18) => name.length>max ? name.substring(0,max-2)+'..' : name;
-function showLoading(msg) { const div = document.createElement('div'); div.id='loading'; div.className='loading-overlay'; div.innerHTML=`<div class="loading-box"><div class="spinner"></div><div>${msg}</div></div>`; document.body.appendChild(div); }
-function hideLoading() { const el = document.getElementById('loading'); if(el) el.remove(); }
 
 document.getElementById('scrollRecosBtn').addEventListener('click', () => {
-  const out = document.getElementById('aiOutput');
-  out.innerHTML = `<div class="reco-card"><div class="card-title">📈 Opportunités externes</div>
+  document.getElementById('aiOutput').innerHTML = `<div class="reco-card"><div class="card-title">📈 Opportunités externes</div>
     <div>• TotalEnergies (TTE) : pétrole élevé, rendement >6%, ex-div juin → objectif 68€</div>
     <div>• LVMH (MC) : rebond luxe Chine → objectif 850€</div>
     <div>• Air Liquide (AI) : hydrogène, résilience → conserver</div>

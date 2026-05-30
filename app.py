@@ -4,75 +4,10 @@ import pandas as pd
 import re
 import requests
 import time
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
-
-# Base de données manuelle de dividendes (complète)
-DIV_FALLBACK = {
-    'TTE': {'annual': 3.40, 'exDate': '2025-06-10'},
-    'BNP': {'annual': 4.60, 'exDate': '2025-05-20'},
-    'SAN': {'annual': 3.56, 'exDate': '2025-05-12'},
-    'MC': {'annual': 13.00, 'exDate': '2025-12-02'},
-    'AI': {'annual': 3.20, 'exDate': '2025-11-18'},
-    'OR': {'annual': 2.20, 'exDate': '2025-06-03'},
-    'SU': {'annual': 3.50, 'exDate': '2025-06-04'},
-    'ACA': {'annual': 2.10, 'exDate': '2025-05-22'},
-    'GLE': {'annual': 2.15, 'exDate': '2025-05-22'},
-    'RNO': {'annual': 1.20, 'exDate': '2025-06-05'},
-    'STLAP': {'annual': 1.55, 'exDate': '2025-04-23'},
-    'ENGI': {'annual': 1.65, 'exDate': '2025-06-02'},
-    'CAP': {'annual': 3.30, 'exDate': '2025-05-29'},
-    'DSY': {'annual': 1.80, 'exDate': '2025-06-12'},
-    'SAF': {'annual': 2.60, 'exDate': '2025-05-27'},
-    'AIR': {'annual': 1.80, 'exDate': '2025-06-04'},
-    'ORAN': {'annual': 0.72, 'exDate': '2025-06-03'},
-    'CS': {'annual': 1.80, 'exDate': '2025-05-15'},
-    'EN': {'annual': 1.40, 'exDate': '2025-06-20'},
-    'FR': {'annual': 0.00, 'exDate': None},
-    'RUI': {'annual': 2.50, 'exDate': '2025-07-01'},
-    'AMUN': {'annual': 5.20, 'exDate': '2025-05-30'},
-    'SCR': {'annual': 1.20, 'exDate': '2025-06-15'},
-    'SEL': {'annual': 1.85, 'exDate': '2025-05-15'},
-    'CD8': {'annual': 2.10, 'exDate': '2025-05-15'},
-    'CW8': {'annual': 0.00, 'exDate': None},
-    'PSP5': {'annual': 0.00, 'exDate': None},
-    'WPEA': {'annual': 0.00, 'exDate': None},
-    'PANX': {'annual': 0.00, 'exDate': None},
-    'HLT': {'annual': 0.00, 'exDate': None},
-    'PMEH': {'annual': 0.00, 'exDate': None},
-    'BOL': {'annual': 0.00, 'exDate': None},
-    'CA': {'annual': 0.00, 'exDate': None},
-    'CO': {'annual': 0.00, 'exDate': None},
-    'ALATI': {'annual': 0.00, 'exDate': None},
-    'ALO': {'annual': 0.00, 'exDate': None},
-    'ALJXR': {'annual': 0.00, 'exDate': None},
-    'ARDS': {'annual': 0.00, 'exDate': None},
-    'AVT': {'annual': 0.00, 'exDate': None},
-    'ELIOR': {'annual': 0.00, 'exDate': None},
-    'ETL': {'annual': 0.00, 'exDate': None},
-    'FDJU': {'annual': 0.00, 'exDate': None},
-    'FNAC': {'annual': 0.00, 'exDate': None},
-    'FRVIA': {'annual': 0.00, 'exDate': None},
-    'HAG': {'annual': 0.00, 'exDate': None},
-    'ALHRS': {'annual': 0.00, 'exDate': None},
-    'NK': {'annual': 0.00, 'exDate': None},
-    'ALINN': {'annual': 0.00, 'exDate': None},
-    'INPST': {'annual': 0.00, 'exDate': None},
-    'DEC': {'annual': 0.00, 'exDate': None},
-    'NXI': {'annual': 0.00, 'exDate': None},
-    'OPM': {'annual': 0.00, 'exDate': None},
-    'SIGHT': {'annual': 0.00, 'exDate': None},
-    'TEP': {'annual': 0.00, 'exDate': None},
-    'TFI': {'annual': 0.00, 'exDate': None},
-    'ALWIT': {'annual': 0.00, 'exDate': None},
-    'WLN': {'annual': 0.00, 'exDate': None},
-    'ALECP': {'annual': 0.00, 'exDate': None},
-    'FGR': {'annual': 0.00, 'exDate': None},
-    'SEFER': {'annual': 0.00, 'exDate': None},
-    'ALWIN': {'annual': 0.00, 'exDate': None},
-    'SAOT': {'annual': 0.00, 'exDate': None},
-}
 
 @app.route('/')
 def index():
@@ -92,19 +27,68 @@ def extract_ticker(libelle):
             return w
     return libelle.split()[0][:5].upper()
 
-def get_price(ticker):
+def fetch_yahoo_data(ticker):
+    symbol = f"{ticker}.PA"
+    url = f"https://query1.finance.yahoo.com/v10/finance/quoteSummary/{symbol}?modules=price,summaryDetail,defaultKeyStatistics"
+    headers = {'User-Agent': 'Mozilla/5.0'}
     try:
-        url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={ticker}.PA"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        resp = requests.get(url, timeout=5)
+        resp = requests.get(url, headers=headers, timeout=8)
         data = resp.json()
-        q = data.get('quoteResponse', {}).get('result', [{}])[0]
-        price = q.get('regularMarketPrice', 0)
-        prev = q.get('regularMarketPreviousClose', price)
-        change = (price - prev) / prev if prev else 0
-        return price, change
+        result = data.get('quoteSummary', {}).get('result', [{}])[0]
+        if not result:
+            return None
+        price_info = result.get('price', {})
+        price = price_info.get('regularMarketPrice', {}).get('raw', 0)
+        prev_close = price_info.get('regularMarketPreviousClose', {}).get('raw', price)
+        change = (price - prev_close) / prev_close if prev_close else 0
+        summary = result.get('summaryDetail', {})
+        annual_div = summary.get('trailingAnnualDividendRate', {}).get('raw', 0)
+        ex_div_ts = summary.get('exDividendDate', {}).get('raw')
+        ex_div_date = datetime.fromtimestamp(ex_div_ts).strftime('%Y-%m-%d') if ex_div_ts else None
+        beta = summary.get('beta', {}).get('raw')
+        pe = result.get('defaultKeyStatistics', {}).get('trailingPE', {}).get('raw')
+        return {
+            'cours': price,
+            'var': change,
+            'annualDiv': annual_div,
+            'exDivDate': ex_div_date,
+            'beta': beta,
+            'trailingPE': pe,
+            'divYield': annual_div / price if price else 0
+        }
     except:
-        return 0, 0
+        return None
+
+def detect_sector(name, ticker):
+    low = (name + ' ' + ticker).lower()
+    # Détection large
+    if any(x in low for x in ['bnp', 'credit agricole', 'societe generale', 'axa', 'scor', 'natixis']):
+        return 'Finance'
+    if any(x in low for x in ['total', 'engie', 'rubis', 'technip', 'maurel']):
+        return 'Énergie'
+    if any(x in low for x in ['renault', 'stellantis', 'valeo', 'faurecia', 'forvia']):
+        return 'Automobile'
+    if any(x in low for x in ['sanofi', 'essilor', 'gensight', 'ipsen']):
+        return 'Santé'
+    if any(x in low for x in ['lvmh', 'kering', 'hermes', 'loreal']):
+        return 'Luxe & Cosmétique'
+    if any(x in low for x in ['orange', 'eutelsat', 'iliad']):
+        return 'Télécoms'
+    if any(x in low for x in ['bouygues', 'eiffage', 'vinci', 'nexity']):
+        return 'Construction/Immobilier'
+    if any(x in low for x in ['carrefour', 'fnac', 'casino']):
+        return 'Distribution'
+    if any(x in low for x in ['capgemini', 'atos', 'dassault systemes', 'worldline']):
+        return 'Technologie'
+    if any(x in low for x in ['airbus', 'safran', 'thales', 'dassault aviation']):
+        return 'Aéronautique/Défense'
+    if any(x in low for x in ['michelin', 'saint-gobain', 'legrand', 'schneider']):
+        return 'Industrie'
+    if any(x in low for x in ['danone', 'pernod', 'remy', 'sodiaal']):
+        return 'Agroalimentaire'
+    if 'etf' in low or 'tracker' in low or 'amundi' in low or 'ishares' in low or 'lyxor' in low:
+        return 'ETF'
+    return 'Autre'
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -127,30 +111,62 @@ def upload_file():
             libelle_col = cols_lower[cand]
             break
     if not libelle_col:
-        return jsonify({'error': f'Libellé introuvable. Colonnes: {list(df.columns)}'}), 400
+        return jsonify({'error': f'Colonne Libellé introuvable. Colonnes: {list(df.columns)}'}), 400
 
     cours_col = cols_lower.get('cours') or cols_lower.get('prix')
     qty_col = cols_lower.get('qté') or cols_lower.get('qte') or cols_lower.get('quantité')
     pru_col = cols_lower.get('pru') or cols_lower.get('prix revient')
 
     result = []
-    for _, row in df.iterrows():
+    total = len(df)
+    for idx, row in df.iterrows():
         lib = row[libelle_col]
         if pd.isna(lib):
             continue
         ticker = extract_ticker(str(lib))
         if not ticker:
             continue
-        qty = float(row[qty_col]) if qty_col and not pd.isna(row[qty_col]) else 0.0
-        pru = float(row[pru_col]) if pru_col and not pd.isna(row[pru_col]) else 0.0
-        cours_initial = float(row[cours_col]) if cours_col and not pd.isna(row[cours_col]) else 0.0
 
-        price, change = get_price(ticker)
-        cours = price if price > 0 else cours_initial
+        qty = 0.0
+        if qty_col and not pd.isna(row[qty_col]):
+            try:
+                qty = float(row[qty_col])
+            except:
+                pass
+        pru = 0.0
+        if pru_col and not pd.isna(row[pru_col]):
+            try:
+                pru = float(row[pru_col])
+            except:
+                pass
+        cours_initial = 0.0
+        if cours_col and not pd.isna(row[cours_col]):
+            try:
+                cours_initial = float(row[cours_col])
+            except:
+                pass
+
+        data = fetch_yahoo_data(ticker)
+        if data and data['cours'] > 0:
+            cours = data['cours']
+            var = data['var']
+            annual_div = data['annualDiv']
+            ex_date = data['exDivDate']
+            beta = data['beta']
+            pe = data['trailingPE']
+            div_yield = data['divYield']
+        else:
+            cours = cours_initial
+            var = 0
+            annual_div = 0
+            ex_date = None
+            beta = None
+            pe = None
+            div_yield = 0
+
         valeur = qty * cours
         pv = valeur - qty * pru
         pvpct = pv / (qty * pru) if qty * pru else 0
-        div = DIV_FALLBACK.get(ticker, {'annual': 0, 'exDate': None})
 
         result.append({
             'name': str(lib),
@@ -158,20 +174,23 @@ def upload_file():
             'qty': qty,
             'pru': pru,
             'cours': cours,
-            'var': change,
+            'var': var,
             'valeur': valeur,
             'pv': pv,
             'pvpct': pvpct,
-            'annualDiv': div['annual'],
-            'exDivDate': div['exDate'],
-            'expectedDivAmount': qty * div['annual'],
-            'divYield': div['annual'] / cours if cours else 0,
-            'beta': None,
-            'trailingPE': None,
-            'sector': 'ETF' if 'etf' in str(lib).lower() else 'Autre',
+            'annualDiv': annual_div,
+            'exDivDate': ex_date,
+            'expectedDivAmount': qty * annual_div,
+            'divYield': div_yield,
+            'beta': beta,
+            'trailingPE': pe,
+            'sector': detect_sector(str(lib), ticker),
             'etf': 'etf' in str(lib).lower()
         })
-        time.sleep(0.05)
+        time.sleep(0.1)
+        if (idx+1) % 5 == 0:
+            print(f"Progression: {idx+1}/{total}")
+
     return jsonify({'success': True, 'portfolio': result})
 
 if __name__ == '__main__':

@@ -120,3 +120,7 @@ footer{border-top:1px solid var(--border);padding:14px 20px;background:var(--bg1
 /* Fix risque table */
 #riskMetrics { overflow-x: auto; white-space: nowrap; }
 .risk-table { min-width: 500px; }
+
+/* Fix overflow risk table */
+#riskMetrics { overflow-x: auto; white-space: nowrap; }
+.risk-table { min-width: 500px; }

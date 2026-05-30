@@ -3,40 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PEA Alpha Cockpit | Dividendes inclus</title>
+  <title>PEA Alpha Cockpit | Dividendes réels</title>
   <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
   <header>
-    <div class="logo"><div class="logo-mark">📈</div><div class="logo-text">PEA Alpha Cockpit</div><span class="logo-badge">Dividendes temps réel</span></div>
+    <div class="logo"><div class="logo-mark">📈</div><div class="logo-text">PEA Alpha Cockpit</div><span class="logo-badge">DIVIDENDES RÉELS</span></div>
     <div class="header-right">
       <div class="status-pill"><div class="dot" id="statusDot"></div><span id="apiStatus">Prêt</span></div>
       <label class="btn" for="excelFile">📁 Importer Excel</label>
       <input type="file" id="excelFile" accept=".xls,.xlsx" style="display:none">
-
-<div id="progressContainer" style="display:none; margin-top: 10px;">
-  <div style="background: var(--bg2); border-radius: 8px; padding: 8px 12px;">
-    <div id="progressMessage">Traitement en cours...</div>
-    <div style="background: var(--bg3); border-radius: 4px; height: 6px; margin-top: 6px;">
-      <div id="progressBar" style="width: 0%; height: 6px; background: var(--green); border-radius: 4px; transition: width 0.3s;"></div>
-    </div>
-  </div>
-</div>
-
-      
       <button class="btn btn-primary" id="scrollRecosBtn">⚡ Recommandations</button>
     </div>
   </header>
   <div class="container">
     <div class="section-title">Indicateurs de performance</div>
     <div class="kpi-grid" id="kpiGrid"><div class="kpi-card blue">Importez un fichier Excel</div></div>
+    
+    <!-- Barre de progression -->
+    <div id="progressContainer" style="display:none; margin-top: 10px; background: var(--bg2); border-radius: 8px; padding: 8px 12px;">
+      <div id="progressMessage">Traitement en cours...</div>
+      <div style="background: var(--bg3); border-radius: 4px; height: 6px; margin-top: 6px;">
+        <div id="progressBar" style="width: 0%; height: 6px; background: var(--green); border-radius: 4px; transition: width 0.3s;"></div>
+      </div>
+    </div>
+
     <div class="tabs">
       <button class="tab-btn active" data-tab="portfolio">📋 Portefeuille</button>
       <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
       <button class="tab-btn" data-tab="dividendes">💰 Dividendes</button>
       <button class="tab-btn" data-tab="risque">🛡 Risque</button>
     </div>
+
     <div id="tab-portfolio" class="tab-panel active">
       <div class="filters-bar">
         <button class="filter-btn active" data-filter="all">Tout</button>
@@ -47,8 +46,14 @@
         <button class="filter-btn" data-filter="vendre">🔴 Vendre</button>
         <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" id="searchInput" placeholder="Rechercher..."></div>
       </div>
-      <div class="table-wrapper"><table id="portfolioTable"><thead id="tableHeader"></thead><tbody id="tableBody"><tr><td colspan="20">En attente d'import</td></tr></tbody></table></div>
+      <div class="table-wrapper">
+        <table id="portfolioTable">
+          <thead id="tableHeader"></thead>
+          <tbody id="tableBody"><tr><td colspan="20">En attente d'import</td></tr></tbody>
+        </table>
+      </div>
     </div>
+
     <div id="tab-analytics" class="tab-panel">
       <div class="charts-row">
         <div class="card"><div class="card-title">🥧 Répartition sectorielle</div><canvas id="sectorChart" height="180"></canvas><div id="sectorLegend"></div></div>
@@ -56,24 +61,27 @@
         <div class="card"><div class="card-title">⚖️ Concentration (top 10)</div><div id="allocBars"></div></div>
       </div>
     </div>
+
     <div id="tab-dividendes" class="tab-panel">
       <div class="charts-row" style="grid-template-columns:1.4fr 1fr;">
         <div class="card"><div class="card-title">📅 Calendrier des détachements</div><div class="div-timeline" id="dividendTimeline"></div></div>
         <div class="card"><div class="card-title">📈 Revenus annuels estimés par mois</div><canvas id="divChart" height="220"></canvas></div>
       </div>
     </div>
+
     <div id="tab-risque" class="tab-panel">
       <div class="charts-row" style="grid-template-columns:1fr 1fr;">
         <div class="card"><div class="card-title">🛡 Métriques de risque</div><div id="riskMetrics"></div></div>
         <div class="card"><div class="card-title">🎯 Positions à risque (< -10%)</div><div id="riskPositions"></div></div>
       </div>
     </div>
+
     <div class="ai-section" id="recoSection">
       <div class="ai-header"><div><div class="ai-title">✦ Recommandations externes</div><div class="ai-subtitle">Opportunités hors portefeuille</div></div></div>
       <div id="aiOutput"><div class="empty-state">📊 Importez un portefeuille</div></div>
     </div>
   </div>
-  <footer><div>⚠️ Données : Yahoo Finance via Python (yfinance) – dividendes temps réel.</div><div><span class="footer-badge" id="footerTime">—</span></div></footer>
+  <footer><div>⚠️ Données : Yahoo Finance direct (cours + dividendes temps réel).</div><div><span class="footer-badge" id="footerTime">—</span></div></footer>
   <script src="script.js"></script>
 </body>
 </html>
