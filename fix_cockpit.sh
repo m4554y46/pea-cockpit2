@@ -1,3 +1,13 @@
+#!/bin/bash
+set -e
+echo "🔧 Correction du cockpit PEA..."
+
+# Backup
+mkdir -p backup
+cp app.py backup/ 2>/dev/null || true
+
+# Nouveau app.py (version stable avec fallback dividendes)
+cat > app.py << 'ENDAPP'
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import pandas as pd
@@ -176,3 +186,21 @@ def upload_file():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
+ENDAPP
+
+# Mise à jour requirements.txt
+cat > requirements.txt << 'ENDREQ'
+flask==2.3.3
+flask-cors==4.0.0
+pandas>=2.2.0
+openpyxl>=3.1.2
+xlrd>=2.0.1
+requests>=2.31.0
+gunicorn>=21.2.0
+ENDREQ
+
+# Correction CSS (scroll risques)
+echo -e "\n/* Fix risque table */\n#riskMetrics { overflow-x: auto; white-space: nowrap; }\n.risk-table { min-width: 500px; }" >> public/style.css
+
+echo "✅ Correction terminée !"
+echo "📌 Maintenant, exécute : git add . && git commit -m 'Fix complet' && git push origin main"
