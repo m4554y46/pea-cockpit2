@@ -1,0 +1,33 @@
+name: Scraper Yahoo Finance
+
+on:
+  push:
+    paths:
+      - 'input.csv'
+  workflow_dispatch:   # permet de lancer manuellement depuis l'onglet Actions
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install yfinance pandas
+
+      - name: Run scraper
+        run: python scraper.py
+
+      - name: Commit and push output.json
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add output.json
+          git commit -m "Update output.json" || echo "No changes to commit"
+          git push origin main
