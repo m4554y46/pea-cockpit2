@@ -9,6 +9,18 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)
 
+# Fallback manuel pour les ETF et actions qui ne renvoient pas de dividendes via Yahoo
+DIV_FALLBACK = {
+    'SEL': {'annual': 1.85, 'exDate': '2025-05-15'},
+    'CD8': {'annual': 2.10, 'exDate': '2025-05-15'},
+    'CW8': {'annual': 0.00, 'exDate': None},
+    'PSP5': {'annual': 0.00, 'exDate': None},
+    'WPEA': {'annual': 0.00, 'exDate': None},
+    'PANX': {'annual': 0.00, 'exDate': None},
+    'HLT': {'annual': 0.00, 'exDate': None},
+    'PMEH': {'annual': 0.00, 'exDate': None},
+}
+
 @app.route('/')
 def index():
     return send_from_directory('public', 'index.html')
@@ -61,33 +73,18 @@ def fetch_yahoo_data(ticker):
 
 def detect_sector(name, ticker):
     low = (name + ' ' + ticker).lower()
-    # Détection large
-    if any(x in low for x in ['bnp', 'credit agricole', 'societe generale', 'axa', 'scor', 'natixis']):
-        return 'Finance'
-    if any(x in low for x in ['total', 'engie', 'rubis', 'technip', 'maurel']):
-        return 'Énergie'
-    if any(x in low for x in ['renault', 'stellantis', 'valeo', 'faurecia', 'forvia']):
-        return 'Automobile'
-    if any(x in low for x in ['sanofi', 'essilor', 'gensight', 'ipsen']):
-        return 'Santé'
-    if any(x in low for x in ['lvmh', 'kering', 'hermes', 'loreal']):
-        return 'Luxe & Cosmétique'
-    if any(x in low for x in ['orange', 'eutelsat', 'iliad']):
-        return 'Télécoms'
-    if any(x in low for x in ['bouygues', 'eiffage', 'vinci', 'nexity']):
-        return 'Construction/Immobilier'
-    if any(x in low for x in ['carrefour', 'fnac', 'casino']):
-        return 'Distribution'
-    if any(x in low for x in ['capgemini', 'atos', 'dassault systemes', 'worldline']):
-        return 'Technologie'
-    if any(x in low for x in ['airbus', 'safran', 'thales', 'dassault aviation']):
-        return 'Aéronautique/Défense'
-    if any(x in low for x in ['michelin', 'saint-gobain', 'legrand', 'schneider']):
-        return 'Industrie'
-    if any(x in low for x in ['danone', 'pernod', 'remy', 'sodiaal']):
-        return 'Agroalimentaire'
-    if 'etf' in low or 'tracker' in low or 'amundi' in low or 'ishares' in low or 'lyxor' in low:
+    if 'etf' in low or 'tracker' in low or 'amundi' in low:
         return 'ETF'
+    if any(x in low for x in ['bnp', 'credit', 'axa', 'societe']):
+        return 'Finance'
+    if any(x in low for x in ['total', 'engie', 'rubis']):
+        return 'Énergie'
+    if any(x in low for x in ['renault', 'stellantis', 'valeo']):
+        return 'Automobile'
+    if any(x in low for x in ['sanofi', 'essilor']):
+        return 'Santé'
+    if any(x in low for x in ['lvmh', 'kering', 'hermes']):
+        return 'Luxe'
     return 'Autre'
 
 @app.route('/upload', methods=['POST'])
@@ -111,7 +108,7 @@ def upload_file():
             libelle_col = cols_lower[cand]
             break
     if not libelle_col:
-        return jsonify({'error': f'Colonne Libellé introuvable. Colonnes: {list(df.columns)}'}), 400
+        return jsonify({'error': f'Libellé introuvable. Colonnes: {list(df.columns)}'}), 400
 
     cours_col = cols_lower.get('cours') or cols_lower.get('prix')
     qty_col = cols_lower.get('qté') or cols_lower.get('qte') or cols_lower.get('quantité')
@@ -163,6 +160,12 @@ def upload_file():
             beta = None
             pe = None
             div_yield = 0
+
+        # Fallback manuel
+        if ticker in DIV_FALLBACK:
+            annual_div = DIV_FALLBACK[ticker]['annual']
+            ex_date = DIV_FALLBACK[ticker]['exDate']
+            div_yield = annual_div / cours if cours else 0
 
         valeur = qty * cours
         pv = valeur - qty * pru
